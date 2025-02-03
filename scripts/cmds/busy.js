@@ -1,79 +1,169 @@
-if (!global.client.busyList)
-	global.client.busyList = {};
-
-module.exports = {
-	config: {
-		name: "busy",
-		version: "1.6",
-		author: "NTKhang",
-		countDown: 5,
-		role: 0,
-		description: {
-			vi: "bật chế độ không làm phiền, khi bạn được tag bot sẽ thông báo",
-			en: "turn on do not disturb mode, when you are tagged bot will notify"
-		},
-		category: "box chat",
-		guide: {
-			vi: "   {pn} [để trống | <lý do>]: bật chế độ không làm phiền"
-				+ "\n   {pn} off: tắt chế độ không làm phiền",
-			en: "   {pn} [empty | <reason>]: turn on do not disturb mode"
-				+ "\n   {pn} off: turn off do not disturb mode"
-		}
-	},
-
-	langs: {
-		vi: {
-			turnedOff: "✅ | Đã tắt chế độ không làm phiền",
-			turnedOn: "✅ | Đã bật chế độ không làm phiền",
-			turnedOnWithReason: "✅ | Đã bật chế độ không làm phiền với lý do: %1",
-			turnedOnWithoutReason: "✅ | Đã bật chế độ không làm phiền",
-			alreadyOn: "Hiện tại người dùng %1 đang bận",
-			alreadyOnWithReason: "Hiện tại người dùng %1 đang bận với lý do: %2"
-		},
-		en: {
-			turnedOff: "✅ | Do not disturb mode has been turned off",
-			turnedOn: "✅ | Do not disturb mode has been turned on",
-			turnedOnWithReason: "✅ | Do not disturb mode has been turned on with reason: %1",
-			turnedOnWithoutReason: "✅ | Do not disturb mode has been turned on",
-			alreadyOn: "User %1 is currently busy",
-			alreadyOnWithReason: "User %1 is currently busy with reason: %2"
-		}
-	},
-
-	onStart: async function ({ args, message, event, getLang, usersData }) {
-		const { senderID } = event;
-
-		if (args[0] == "off") {
-			const { data } = await usersData.get(senderID);
-			delete data.busy;
-			await usersData.set(senderID, data, "data");
-			return message.reply(getLang("turnedOff"));
-		}
-
-		const reason = args.join(" ") || "";
-		await usersData.set(senderID, reason, "data.busy");
-		return message.reply(
-			reason ?
-				getLang("turnedOnWithReason", reason) :
-				getLang("turnedOnWithoutReason")
-		);
-	},
-
-	onChat: async ({ event, message, getLang }) => {
-		const { mentions } = event;
-
-		if (!mentions || Object.keys(mentions).length == 0)
-			return;
-		const arrayMentions = Object.keys(mentions);
-
-		for (const userID of arrayMentions) {
-			const reasonBusy = global.db.allUserData.find(item => item.userID == userID)?.data.busy || false;
-			if (reasonBusy !== false) {
-				return message.reply(
-					reasonBusy ?
-						getLang("alreadyOnWithReason", mentions[userID].replace("@", ""), reasonBusy) :
-						getLang("alreadyOn", mentions[userID].replace("@", "")));
-			}
-		}
-	}
+const axios = require('axios');
+const baseApiUrl = async () => {
+  const base = await axios.get('https://raw.githubusercontent.com/Blankid018/D1PT0/main/baseApiUrl.json');
+  return base.data.api;
 };
+
+module.exports.config = {
+  name: "bby",
+  aliases: ["baby", "bbe", "babe"],
+  version: "6.9.0",
+  author: "dipto",
+  countDown: 0,
+  role: 0,
+  description: "better then all sim simi",
+  category: "chat",
+  guide: {
+    en: "{pn} [anyMessage] OR\nteach [YourMessage] - [Reply1], [Reply2], [Reply3]... OR\nteach [react] [YourMessage] - [react1], [react2], [react3]... OR\nremove [YourMessage] OR\nrm [YourMessage] - [indexNumber] OR\nmsg [YourMessage] OR\nlist OR \nall OR\nedit [YourMessage] - [NeeMessage]"
+  }
+};
+
+module.exports.onStart = async ({ api, event, args, usersData }) => {
+  const link = `${await baseApiUrl()}/baby`;
+  const dipto = args.join(" ").toLowerCase();
+  const uid = event.senderID;
+  let command, comd, final;
+
+  try {
+    if (!args[0]) {
+      const ran = ["Bolo baby", "hum", "type help baby", "type !baby hi"];
+      return api.sendMessage(ran[Math.floor(Math.random() * ran.length)], event.threadID, event.messageID);
+    }
+
+    if (args[0] === 'remove') {
+      const fina = dipto.replace("remove ", "");
+      const dat = (await axios.get(`${link}?remove=${fina}&senderID=${uid}`)).data.message;
+      return api.sendMessage(dat, event.threadID, event.messageID);
+    }
+
+    if (args[0] === 'rm' && dipto.includes('-')) {
+      const [fi, f] = dipto.replace("rm ", "").split(' - ');
+      const da = (await axios.get(`${link}?remove=${fi}&index=${f}`)).data.message;
+      return api.sendMessage(da, event.threadID, event.messageID);
+    }
+
+    if (args[0] === 'list') {
+      if (args[1] === 'all') {
+        const data = (await axios.get(`${link}?list=all`)).data;
+        const teachers = await Promise.all(data.teacher.teacherList.map(async (item) => {
+          const number = Object.keys(item)[0];
+          const value = item[number];
+          const name = (await usersData.get(number)).name;
+          return { name, value };
+        }));
+        teachers.sort((a, b) => b.value - a.value);
+        const output = teachers.map((t, i) => `${i + 1}/ ${t.name}: ${t.value}`).join('\n');
+        return api.sendMessage(`Total Teach = ${data.length}\n👑 | List of Teachers of baby\n${output}`, event.threadID, event.messageID);
+      } else {
+        const d = (await axios.get(`${link}?list=all`)).data.length;
+        return api.sendMessage(`Total Teach = ${d}`, event.threadID, event.messageID);
+      }
+    }
+
+    if (args[0] === 'msg') {
+      const fuk = dipto.replace("msg ", "");
+      const d = (await axios.get(`${link}?list=${fuk}`)).data.data;
+      return api.sendMessage(`Message ${fuk} = ${d}`, event.threadID, event.messageID);
+    }
+
+    if (args[0] === 'edit') {
+      const command = dipto.split(' - ')[1];
+      if (command.length < 2) return api.sendMessage('❌ | Invalid format! Use edit [YourMessage] - [NewReply]', event.threadID, event.messageID);
+      const dA = (await axios.get(`${link}?edit=${args[1]}&replace=${command}&senderID=${uid}`)).data.message;
+      return api.sendMessage(`changed ${dA}`, event.threadID, event.messageID);
+    }
+
+    if (args[0] === 'teach' && args[1] !== 'amar' && args[1] !== 'react') {
+      [comd, command] = dipto.split(' - ');
+      final = comd.replace("teach ", "");
+      if (command.length < 2) return api.sendMessage('❌ | Invalid format!', event.threadID, event.messageID);
+      const re = await axios.get(`${link}?teach=${final}&reply=${command}&senderID=${uid}`);
+      const tex = re.data.message;
+      const teacher = (await usersData.get(re.data.teacher)).name;
+      return api.sendMessage(`✅ Replies added ${tex}\nTeacher: ${teacher}\nTeachs: ${re.data.teachs}`, event.threadID, event.messageID);
+    }
+
+    if (args[0] === 'teach' && args[1] === 'amar') {
+      [comd, command] = dipto.split(' - ');
+      final = comd.replace("teach ", "");
+      if (command.length < 2) return api.sendMessage('❌ | Invalid format!', event.threadID, event.messageID);
+      const tex = (await axios.get(`${link}?teach=${final}&senderID=${uid}&reply=${command}&key=intro`)).data.message;
+      return api.sendMessage(`✅ Replies added ${tex}`, event.threadID, event.messageID);
+    }
+
+    if (args[0] === 'teach' && args[1] === 'react') {
+      [comd, command] = dipto.split(' - ');
+      final = comd.replace("teach react ", "");
+      if (command.length < 2) return api.sendMessage('❌ | Invalid format!', event.threadID, event.messageID);
+      const tex = (await axios.get(`${link}?teach=${final}&react=${command}`)).data.message;
+      return api.sendMessage(`✅ Replies added ${tex}`, event.threadID, event.messageID);
+    }
+
+    if (dipto.includes('amar name ki') || dipto.includes('amr nam ki') || dipto.includes('amar nam ki') || dipto.includes('amr name ki') || dipto.includes('whats my name')) {
+      const data = (await axios.get(`${link}?text=amar name ki&senderID=${uid}&key=intro`)).data.reply;
+      return api.sendMessage(data, event.threadID, event.messageID);
+    }
+
+    const d = (await axios.get(`${link}?text=${dipto}&senderID=${uid}&font=1`)).data.reply;
+    api.sendMessage(d, event.threadID, (error, info) => {
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: this.config.name,
+        type: "reply",
+        messageID: info.messageID,
+        author: event.senderID,
+        d, 
+        apiUrl: link
+      });
+    }, event.messageID);
+
+  } catch (e) {
+    console.log(e);
+    api.sendMessage("Check console for error", event.threadID, event.messageID);
+  }
+};
+
+module.exports.onReply = async ({ api, event, Reply }) => {
+  try{
+  if (event.type == "message_reply") {
+    const a = (await axios.get(`${await baseApiUrl()}/baby?text=${encodeURIComponent(event.body?.toLowerCase())}&senderID=${event.senderID}&font=1`)).data.reply;
+    await api.sendMessage(a, event.threadID, (error, info) => {
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: this.config.name,
+        type: "reply",
+        messageID: info.messageID,
+        author: event.senderID,
+        a
+      });
+    }, event.messageID);
+  }  
+  }catch(err){
+      return api.sendMessage(`Error: ${err.message}`, event.threadID, event.messageID);
+    }};
+
+module.exports.onChat = async ({ api, event,message }) => {
+  try{
+    const body = event.body ? event.body.toLowerCase() : ""
+    if(body.startsWith("baby") || body.startsWith("bby") || body.startsWith("janu")){
+      const arr = body.replace(/^\S+\s*/, "")
+      if(!arr){ api.sendMessage("Yes 😀, i am here", event.threadID, (error, info) => {
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: this.config.name,
+        type: "reply",
+        messageID: info.messageID,
+        author: event.senderID
+      });
+    }, event.messageID);}
+    const a = (await axios.get(`${await baseApiUrl()}/baby?text=${encodeURIComponent(arr)}&senderID=${event.senderID}&font=1`)).data.reply;
+    await api.sendMessage(a, event.threadID, (error, info) => {
+      global.GoatBot.onReply.set(info.messageID, {
+        commandName: this.config.name,
+        type: "reply",
+        messageID: info.messageID,
+        author: event.senderID,
+        a
+      });
+    }, event.messageID);
+    }
+  }catch(err){
+      return api.sendMessage(`ki bolo `, event.threadID, event.messageID);
+    }};

@@ -31,8 +31,8 @@ module.exports = {
     const uid2 = Object.keys(event.mentions)[0];
 
     // Check if the mentioned user is the restricted ID
-    if (uid2 === "100078140834638" || uid2 === "100084690500330") { 
-      return message.reply("who the hell are you moron 😵‍💫"); 
+    if (uid2 === "100054667639604" || uid2 === "100092366766774") { 
+      return message.reply("nah baby aita amr boss rimon ar friend lage 😿⭕ "); 
     }
 
     if (!uid2) {
